@@ -5,11 +5,42 @@
 #include "gtest/gtest.h"
 #include "../../src/Algo/AES/Aes.h"
 #include <array>
+#include <chrono>
 
 namespace algo::aes {
 class AesTest: public testing::Test{
 public:
     inline static const uint8_t kKey128[] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,0x4f, 0x3c};
+
+    template<size_t KeySize>
+    void runBenchmark(size_t test_size) {
+        Aes<KeySize> aes;
+
+        std::array<uint8_t, KeySize/8> key;
+        for(size_t i = 0; i < 16; i++) {
+            key[i] = rand();
+        }
+
+        std::vector<uint8_t> input(test_size); //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
+        for(size_t i = 0; i < input.size(); i++) {
+            input[i] = input[i-1] + i; // pseudo random_data
+        }
+        size_t output_size;
+
+        std::vector<uint8_t> encrypted(test_size + 16);
+        std::vector<uint8_t> decrypted(test_size);
+        auto t1 = std::chrono::high_resolution_clock::now();
+
+        aes.Encrypt(input.data(), input.size(), key.data(), encrypted.data(), output_size);
+        aes.Decrypt(encrypted.data(), key.data(), decrypted.data(), decrypted.size());
+
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        auto duration = std::chrono::duration<double>( t2 - t1 ).count();
+        std::cout << "AES-" << KeySize << ", size: " << (double)test_size << ", time: " << duration << "s" << std::endl;
+
+        ASSERT_EQ(input, decrypted);
+    }
 };
 
 TEST_F(AesTest, KeyExpansionTest) {
@@ -138,26 +169,17 @@ TEST_F(AesTest, DecipherTestFromString) {
 
 
 TEST_F(AesTest, CipherDecipher) {
+    std::vector<size_t> sizes = {100000, 10000000, 1000000000};
+    for(auto size:sizes) {
+        runBenchmark<128>(size);
+        runBenchmark<192>(size);
+        runBenchmark<256>(size);
+    }
+
     // 1Gb synthetic data
     // Sequential - 35s
     // Parallel(8 cores) - 7s
-    Aes<128> aes;
-    size_t test_size = (1 << 30);
 
-    uint8_t key[] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f};
-    std::vector<uint8_t> input(test_size); //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
-    for(size_t i = 0; i < input.size(); i++) {
-        input[i] = input[i-1] + i;
-    }
-    std::vector<uint8_t> encrypted(test_size + 16);
-    std::vector<uint8_t> decrypted(test_size);
-
-
-    size_t output_size;
-    aes.Encrypt(input.data(), input.size(), key, encrypted.data(), output_size);
-    aes.Decrypt(encrypted.data(), key, decrypted.data(), decrypted.size());
-
-    ASSERT_EQ(input, decrypted);
 }
 }
 

@@ -21,7 +21,7 @@ public:
         size_t block_count = input_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-//#pragma omp parallel for
+#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             Cipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
@@ -47,7 +47,7 @@ public:
         size_t block_count = output_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-//#pragma omp parallel for
+#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             InvCipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
@@ -131,7 +131,7 @@ public:
     void InitOutputFromState(uint8_t *out, const uint8_t *state) {
         for(uint32_t i = 0; i < 4; i++) {
             for(uint32_t j = 0; j < Nb; j++) {
-                out[i + 4 * j] = state[i * Nk + j];
+                out[i + 4 * j] = state[i * Nb + j];
             }
         }
     }
@@ -155,20 +155,6 @@ public:
             state[i] = kInvSBox[state[i]];
         }
     }
-
-/*  uint32_t SubWord(const uint32_t word) {
-    return (kSBox[(word >> 0) & 0xff] << 0) +
-           (kSBox[(word >> 8) & 0xff] << 8) +
-           (kSBox[(word >> 16) & 0xff] << 16) +
-           (kSBox[(word >> 24) & 0xff] << 24);
-  }
-
-  uint32_t InvSubWord(const uint32_t word) {
-    return (kInvSbox[(word >> 0) & 0xff] << 0) +
-           (kInvSbox[(word >> 8) & 0xff] << 8) +
-           (kInvSbox[(word >> 16) & 0xff] << 16) +
-           (kInvSbox[(word >> 24) & 0xff] << 24);
-  }*/
 
     uint32_t RotWord(uint32_t word) {
         return (word << 8) + (word >> 24);
@@ -223,7 +209,7 @@ public:
     }
 
     static inline uint8_t dbl(uint8_t a) {
-        return (a << 1) ^ (0x11b & -(a >> 7));
+        return (a << 1) ^ (0x11b & -(a >> 7)); // bit-hacks hehe
     }
 
     void MixColumn(uint8_t *cols) {
