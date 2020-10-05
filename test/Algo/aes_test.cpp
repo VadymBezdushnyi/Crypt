@@ -138,6 +138,9 @@ TEST_F(AesTest, DecipherTestFromString) {
 
 
 TEST_F(AesTest, CipherDecipher) {
+    // 1Gb synthetic data
+    // Sequential - 35s
+    // Parallel(8 cores) - 7s
     Aes<128> aes;
     size_t test_size = (1 << 30);
 

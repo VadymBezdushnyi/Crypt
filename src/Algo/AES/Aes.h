@@ -21,7 +21,7 @@ public:
         size_t block_count = input_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             Cipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
@@ -47,7 +47,7 @@ public:
         size_t block_count = output_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             InvCipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
