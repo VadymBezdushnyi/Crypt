@@ -16,25 +16,26 @@ public:
     void runBenchmark(size_t test_size) {
         Aes<KeySize> aes;
 
-        std::array<uint8_t, KeySize/8> key;
-        for(size_t i = 0; i < 16; i++) {
+        std::array<uint8_t, aes.KeySizeBytes> key;
+        for(size_t i = 0; i < key.size(); i++) {
             key[i] = rand();
         }
 
-        std::vector<uint8_t> input(test_size); //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
+        std::vector<uint8_t> input(test_size);
         for(size_t i = 0; i < input.size(); i++) {
             input[i] = input[i-1] + i; // pseudo random_data
         }
         size_t output_size;
 
-        std::vector<uint8_t> encrypted(test_size + 16);
+        std::vector<uint8_t> encrypted(aes.GetPaddedLen(test_size));
         std::vector<uint8_t> decrypted(test_size);
-        auto t1 = std::chrono::high_resolution_clock::now();
 
+
+        auto t1 = std::chrono::high_resolution_clock::now();
         aes.Encrypt(input.data(), input.size(), key.data(), encrypted.data(), output_size);
         aes.Decrypt(encrypted.data(), key.data(), decrypted.data(), decrypted.size());
-
         auto t2 = std::chrono::high_resolution_clock::now();
+
 
         auto duration = std::chrono::duration<double>( t2 - t1 ).count();
         std::cout << "AES-" << KeySize << ", size: " << (double)test_size << ", time: " << duration << "s" << std::endl;
@@ -43,8 +44,9 @@ public:
     }
     void print_hex(uint8_t* p, size_t size){
         for(size_t i = 0; i < size; i++) {
-            std::cout << std::hex << (uint32_t)p[i];
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << (uint32_t)p[i];
         }
+        std::cout << std::setfill(' ');
         std::cout << std::endl;
     }
 };
@@ -112,7 +114,7 @@ TEST_F(AesTest, KeyExpansionTest) {
     aes.KeyExpansion(kKey128, expanded_key.data());
     for(uint32_t i = 0; i < aes.ExpandedKeySize; i++) {
         // std::cout << std::setw(2) << i << " " << std::hex << expanded_key[i] << std::endl;
-        EXPECT_EQ(expanded_key[i], expected_expanded_key[i]);
+        EXPECT_EQ(expanded_key[i], __builtin_bswap32(expected_expanded_key[i]));
     }
 }
 
@@ -132,9 +134,6 @@ TEST_F(AesTest,  ManualCipherTest) {
 0xdc,0x11,0x85,0x97,
 0x19,0x6a,0x0b,0x32
     };
-    for(uint32_t i = 0; i < expanded_key.size(); i++) {
-        expanded_key[i] = __builtin_bswap32(expanded_key[i]);
-    }
     aes.Cipher(input.data(), output.data(), (uint8_t*)expanded_key.data());
 
     ASSERT_EQ(output, expected_output);
@@ -194,20 +193,19 @@ TEST_F(AesTest, CipherDecipherVisual) {
     for(size_t i = 0; i < key.size(); i++) {
         key[i] = rand();
     }
-    std::cout << std::setw(12) << "Encrypted: ";
+    std::cout << std::setw(12) << "Key: ";
     print_hex(key.data(), key.size());
 
-    std::string input = "Cybernetics Faculty of Taras Shevchenko National University of Kyiv was founded on May 6, 1969. Academician of NAS of Ukraine V.M. Glushkov and dean of the Faculty of Mechanics and Mathematics, Professor I.I. Liashko were its founders. Almost at once after the establishment, Faculty of Cybernetics became a major center of training specialists in the area of applied mathematics and informatics in the Soviet Union."; //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
+//    std::string input = "Cybernetics Faculty of Taras Shevchenko National University of Kyiv was founded on May 6, 1969. Academician of NAS of Ukraine V.M. Glushkov and dean of the Faculty of Mechanics and Mathematics, Professor I.I. Liashko were its founders. Almost at once after the establishment, Faculty of Cybernetics became a major center of training specialists in the area of applied mathematics and informatics in the Soviet Union."; //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
+    std::string input = "Cybernetics";
     size_t output_size;
 
     std::vector<uint8_t> encrypted(aes.GetPaddedLen(input.size()));
     std::string decrypted(input.size(), '0');
-    auto t1 = std::chrono::high_resolution_clock::now();
 
     aes.Encrypt(reinterpret_cast<uint8_t *>(input.data()), input.size(), key.data(), encrypted.data(), output_size);
     aes.Decrypt(encrypted.data(), key.data(), reinterpret_cast<uint8_t *>(decrypted.data()), decrypted.size());
 
-    auto t2 = std::chrono::high_resolution_clock::now();
 
 
     std::cout << std::setw(12) << "Input: " << input << std::endl;

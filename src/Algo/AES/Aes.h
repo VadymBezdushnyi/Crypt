@@ -11,12 +11,17 @@ namespace algo::aes {
 template<uint32_t KeySize>
 class Aes {
 public:
+    Aes() {
+        static_assert(KeySize == 128 || KeySize == 192 || KeySize == 256, "Invalid key size");
+    }
+
+    static size_t GetPaddedLen(size_t length) {
+        return (length + BlockSize - 1) / BlockSize * BlockSize;
+    }
+
     void Encrypt(uint8_t *input, size_t input_len, uint8_t key[KeySize / 8], uint8_t *output, size_t &output_len) {
         uint32_t expanded_key[ExpandedKeySize];
         KeyExpansion(key, expanded_key);
-        for(uint32_t i = 0; i < ExpandedKeySize; i++) {
-            expanded_key[i] = __builtin_bswap32(expanded_key[i]);
-        }
 
         size_t block_count = input_len / BlockSize;
 
@@ -37,11 +42,8 @@ public:
     }
 
     void Decrypt(uint8_t *input, uint8_t key[KeySize / 8], uint8_t *output, size_t output_len) {
-        uint32_t expanded_key[Nb * (Nr + 1)];
+        uint32_t expanded_key[ExpandedKeySize];
         KeyExpansion(key, expanded_key);
-        for(uint32_t i = 0; i < Nb * (Nr + 1); i++) {
-            expanded_key[i] = __builtin_bswap32(expanded_key[i]);
-        }
 
         constexpr size_t block_size = 16;
         size_t block_count = output_len / block_size;
@@ -68,7 +70,7 @@ public:
         for(i = 0; i < Nk; i++) {
             result[i] = __builtin_bswap32(key_32[i]);
         }
-        for(; i < Nb * (Nr + 1); i++) {
+        for(; i < ExpandedKeySize; i++) {
             temp = result[i - 1];
             if(i % Nk == 0) {
                 temp = RotWord(temp);
@@ -78,6 +80,10 @@ public:
                 SubBytes((uint8_t *) &temp, 4);
             }
             result[i] = result[i - Nk] ^ temp;
+        }
+
+        for(uint32_t i = 0; i < ExpandedKeySize; i++) {
+            result[i] = __builtin_bswap32(result[i]);
         }
     }
 
@@ -229,7 +235,7 @@ public:
         cols[2] = dbl(y ^ c ^ d) ^ d ^ a ^ b;  /* 14c + 11d + 13a + 9b */
         cols[3] = dbl(z ^ d ^ a) ^ a ^ b ^ c;  /* 14d + 11a + 13b + 9c */
     }
-
+private:
     static constexpr uint32_t GetNk() {
         switch(KeySize) {
             case 128:
@@ -256,15 +262,7 @@ public:
         }
     }
 
-    static size_t GetPaddedLen(size_t length) {
-        return (length + BlockSize - 1) / BlockSize * BlockSize;
-    }
-
 public:
-    Aes() {
-        static_assert(KeySize == 128 || KeySize == 192 || KeySize == 256, "Invalid key size");
-    }
-
     static constexpr uint32_t Nb = 4;
     static constexpr uint32_t Nk = GetNk();
     static constexpr uint32_t Nr = GetNr();
