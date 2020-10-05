@@ -5,34 +5,34 @@
 #include <stdexcept>
 #include <vector>
 #include <omp.h>
+#include <cstring>
 
 namespace algo::aes {
 template<uint32_t KeySize>
 class Aes {
 public:
     void Encrypt(uint8_t *input, size_t input_len, uint8_t key[KeySize / 8], uint8_t *output, size_t &output_len) {
-        uint32_t expanded_key[Nb * (Nr + 1)];
+        uint32_t expanded_key[ExpandedKeySize];
         KeyExpansion(key, expanded_key);
-        for(uint32_t i = 0; i < Nb * (Nr + 1); i++) {
+        for(uint32_t i = 0; i < ExpandedKeySize; i++) {
             expanded_key[i] = __builtin_bswap32(expanded_key[i]);
         }
 
-        constexpr size_t block_size = 16;
-        size_t block_count = input_len / block_size;
+        size_t block_count = input_len / BlockSize;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
-            Cipher(input + block_size * i, output + block_size * i, expanded_key8);
+            Cipher(input + BlockSize * i, output + BlockSize * i, expanded_key8);
         }
-        output_len = block_count * block_size;
+        output_len = block_count * BlockSize;
 
-        size_t remaining_data = input_len % block_size;
+        size_t remaining_data = input_len % BlockSize;
         if(remaining_data > 0) {
-            uint8_t padded_input[block_size] = {0};
-            memcpy(padded_input, input + block_size * block_count, remaining_data);
-            Cipher(padded_input, output + block_size * block_count, expanded_key8);
-            output_len += block_size;
+            uint8_t padded_input[BlockSize] = {0};
+            memcpy(padded_input, input + BlockSize * block_count, remaining_data);
+            Cipher(padded_input, output + BlockSize * block_count, expanded_key8);
+            output_len += BlockSize;
         }
     }
 
@@ -47,13 +47,14 @@ public:
         size_t block_count = output_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             InvCipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
         size_t remaining_data = output_len % block_size;
         if(remaining_data > 0) {
             uint8_t padded_input[block_size] = {0};
+            memset(padded_input, 0, sizeof(padded_input));
             InvCipher(input + block_size * block_count, padded_input, expanded_key8);
             memcpy(output + block_size * block_count, padded_input, remaining_data);
         }
@@ -87,15 +88,15 @@ public:
         AddRoundKey(state, w);
 
         for(uint32_t round = 1; round <= Nr - 1; round++) {
-            SubBytes(state, StateSize);
+            SubBytes(state, BlockSize);
             ShiftRows(state);
             MixColumns(state);
-            AddRoundKey(state, w + round * StateSize);
+            AddRoundKey(state, w + round * BlockSize);
         }
 
-        SubBytes(state, StateSize);
+        SubBytes(state, BlockSize);
         ShiftRows(state);
-        AddRoundKey(state, w + Nr * StateSize);
+        AddRoundKey(state, w + Nr * BlockSize);
 
         InitOutputFromState(out, (const uint8_t *) state);
     }
@@ -104,17 +105,17 @@ public:
         uint8_t state[4 * Nb];
 
         InitStateFromInput(state, in);
-        AddRoundKey(state, w + Nr * StateSize);
+        AddRoundKey(state, w + Nr * BlockSize);
 
         for(uint32_t round = Nr - 1; round >= 1; round--) {
             InvShiftRows(state);
-            InvSubBytes(state, StateSize);
-            AddRoundKey(state, w + round * StateSize);
+            InvSubBytes(state, BlockSize);
+            AddRoundKey(state, w + round * BlockSize);
             InvMixColumns(state);
         }
 
         InvShiftRows(state);
-        InvSubBytes(state, StateSize);
+        InvSubBytes(state, BlockSize);
         AddRoundKey(state, w);
 
         InitOutputFromState(out, const_cast<const uint8_t *>(state));
@@ -229,7 +230,7 @@ public:
         cols[3] = dbl(z ^ d ^ a) ^ a ^ b ^ c;  /* 14d + 11a + 13b + 9c */
     }
 
-    constexpr uint32_t GetNk() {
+    static constexpr uint32_t GetNk() {
         switch(KeySize) {
             case 128:
                 return 4;
@@ -242,7 +243,7 @@ public:
         }
     }
 
-    constexpr uint32_t GetNr() {
+    static constexpr uint32_t GetNr() {
         switch(KeySize) {
             case 128:
                 return 10;
@@ -255,15 +256,22 @@ public:
         }
     }
 
+    static size_t GetPaddedLen(size_t length) {
+        return (length + BlockSize - 1) / BlockSize * BlockSize;
+    }
+
 public:
     Aes() {
         static_assert(KeySize == 128 || KeySize == 192 || KeySize == 256, "Invalid key size");
     }
 
     static constexpr uint32_t Nb = 4;
-    const uint32_t Nk = GetNk();
-    const uint32_t Nr = GetNr();
-    const uint32_t StateSize = 4 * Nb;
+    static constexpr uint32_t Nk = GetNk();
+    static constexpr uint32_t Nr = GetNr();
+    static constexpr uint32_t BlockSize = 4 * Nb;
+    static constexpr uint32_t ExpandedKeySize = Nb * (Nr + 1);
+    static constexpr uint32_t KeySizeBytes = KeySize/8;
+
 
     inline static const uint32_t kRcon[] = {
             0x00000000, 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000,

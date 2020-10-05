@@ -41,11 +41,17 @@ public:
 
         ASSERT_EQ(input, decrypted);
     }
+    void print_hex(uint8_t* p, size_t size){
+        for(size_t i = 0; i < size; i++) {
+            std::cout << std::hex << (uint32_t)p[i];
+        }
+        std::cout << std::endl;
+    }
 };
 
 TEST_F(AesTest, KeyExpansionTest) {
     Aes<128> aes;
-    std::array<uint32_t, 44> expected_expanded_key = {
+    std::array<uint32_t, aes.ExpandedKeySize> expected_expanded_key = {
             0x2b7e1516,
             0x28aed2a6,
             0xabf71588,
@@ -100,20 +106,19 @@ TEST_F(AesTest, KeyExpansionTest) {
             0xc9ee2589,
             0xe13f0cc8,
             0xb6630ca6};
-
-    std::array<uint32_t, 44> expanded_key;
+    std::array<uint32_t, aes.ExpandedKeySize> expanded_key;
 
 
     aes.KeyExpansion(kKey128, expanded_key.data());
-    for(uint32_t i = 0; i < aes.Nb * (aes.Nr + 1); i++) {
-        std::cout << std::setw(2) << i << " " << std::hex << expanded_key[i] << std::endl;
+    for(uint32_t i = 0; i < aes.ExpandedKeySize; i++) {
+        // std::cout << std::setw(2) << i << " " << std::hex << expanded_key[i] << std::endl;
         EXPECT_EQ(expanded_key[i], expected_expanded_key[i]);
     }
 }
 
 TEST_F(AesTest,  ManualCipherTest) {
     Aes<128> aes;
-    std::array<uint32_t, 44> expanded_key;
+    std::array<uint32_t, aes.ExpandedKeySize> expanded_key;
     aes.KeyExpansion(kKey128, expanded_key.data());
 
     std::array<uint8_t, 16> input = {0x32,0x43,0xf6,0xa8,
@@ -169,7 +174,7 @@ TEST_F(AesTest, DecipherTestFromString) {
 
 
 TEST_F(AesTest, CipherDecipher) {
-    std::vector<size_t> sizes = {100000, 10000000, 1000000000};
+    std::vector<size_t> sizes = {100000, 10000000, /*1000000000*/};
     for(auto size:sizes) {
         runBenchmark<128>(size);
         runBenchmark<192>(size);
@@ -179,7 +184,40 @@ TEST_F(AesTest, CipherDecipher) {
     // 1Gb synthetic data
     // Sequential - 35s
     // Parallel(8 cores) - 7s
-
 }
+
+
+TEST_F(AesTest, CipherDecipherVisual) {
+    Aes<256> aes;
+
+    std::array<uint8_t, aes.KeySizeBytes> key;
+    for(size_t i = 0; i < key.size(); i++) {
+        key[i] = rand();
+    }
+    std::cout << std::setw(12) << "Encrypted: ";
+    print_hex(key.data(), key.size());
+
+    std::string input = "Cybernetics Faculty of Taras Shevchenko National University of Kyiv was founded on May 6, 1969. Academician of NAS of Ukraine V.M. Glushkov and dean of the Faculty of Mechanics and Mathematics, Professor I.I. Liashko were its founders. Almost at once after the establishment, Faculty of Cybernetics became a major center of training specialists in the area of applied mathematics and informatics in the Soviet Union."; //  = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
+    size_t output_size;
+
+    std::vector<uint8_t> encrypted(aes.GetPaddedLen(input.size()));
+    std::string decrypted(input.size(), '0');
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    aes.Encrypt(reinterpret_cast<uint8_t *>(input.data()), input.size(), key.data(), encrypted.data(), output_size);
+    aes.Decrypt(encrypted.data(), key.data(), reinterpret_cast<uint8_t *>(decrypted.data()), decrypted.size());
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+
+    std::cout << std::setw(12) << "Input: " << input << std::endl;
+
+    std::cout << std::setw(12) << "Encrypted: ";
+    print_hex(encrypted.data(), encrypted.size());
+    std::cout << std::setw(12) << "Output: " <<  decrypted << std::endl;
+
+    ASSERT_EQ(input, decrypted);
+}
+
 }
 
