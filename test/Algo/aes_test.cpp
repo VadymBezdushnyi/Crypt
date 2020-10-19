@@ -32,8 +32,8 @@ public:
 
 
         auto t1 = std::chrono::high_resolution_clock::now();
-        aes.Encrypt(input.data(), input.size(), key.data(), encrypted.data(), output_size);
-        aes.Decrypt(encrypted.data(), key.data(), decrypted.data(), decrypted.size());
+        aes.EncryptEcb(input.data(), input.size(), key.data(), encrypted.data(), output_size);
+        aes.DecryptEcb(encrypted.data(), key.data(), decrypted.data(), decrypted.size());
         auto t2 = std::chrono::high_resolution_clock::now();
 
 
@@ -145,7 +145,7 @@ TEST_F(AesTest, CipherTestFromString) {
     Aes<128> aes;
     std::array<uint8_t, sizeof(input)> output;
     size_t output_size;
-    aes.Encrypt(input, sizeof(input), key, output.data(), output_size);
+    aes.EncryptEcb(input, sizeof(input), key, output.data(), output_size);
 
     for(size_t i = 0; i < output_size; i++) {
         std::cout << std::hex << (uint32_t)output[i];
@@ -161,7 +161,7 @@ TEST_F(AesTest, DecipherTestFromString) {
     uint8_t key[] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f};
     Aes<128> aes;
     std::array<uint8_t, sizeof(input)> output;
-    aes.Decrypt(input, key, output.data(), output.size());
+    aes.DecryptEcb(input, key, output.data(), output.size());
 
     for(size_t i = 0; i < output.size(); i++) {
         std::cout << std::hex << (uint32_t)output[i];
@@ -173,7 +173,7 @@ TEST_F(AesTest, DecipherTestFromString) {
 
 
 TEST_F(AesTest, CipherDecipher) {
-    std::vector<size_t> sizes = {100000, 10000000, /*1000000000*/};
+    std::vector<size_t> sizes = {100000, 10000000, 1000000000};
     for(auto size:sizes) {
         runBenchmark<128>(size);
         runBenchmark<192>(size);
@@ -203,8 +203,8 @@ TEST_F(AesTest, CipherDecipherVisual) {
     std::vector<uint8_t> encrypted(aes.GetPaddedLen(input.size()));
     std::string decrypted(input.size(), '0');
 
-    aes.Encrypt(reinterpret_cast<uint8_t *>(input.data()), input.size(), key.data(), encrypted.data(), output_size);
-    aes.Decrypt(encrypted.data(), key.data(), reinterpret_cast<uint8_t *>(decrypted.data()), decrypted.size());
+    aes.EncryptEcb(reinterpret_cast<uint8_t *>(input.data()), input.size(), key.data(), encrypted.data(), output_size);
+    aes.DecryptEcb(encrypted.data(), key.data(), reinterpret_cast<uint8_t *>(decrypted.data()), decrypted.size());
 
 
 

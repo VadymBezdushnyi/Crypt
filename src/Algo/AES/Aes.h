@@ -19,14 +19,14 @@ public:
         return (length + BlockSize - 1) / BlockSize * BlockSize;
     }
 
-    void Encrypt(uint8_t *input, size_t input_len, uint8_t key[KeySize / 8], uint8_t *output, size_t &output_len) {
+    void EncryptEcb(uint8_t *input, size_t input_len, uint8_t *key, uint8_t *output, size_t &output_len) {
         uint32_t expanded_key[ExpandedKeySize];
         KeyExpansion(key, expanded_key);
 
         size_t block_count = input_len / BlockSize;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-//#pragma omp parallel for
+#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             Cipher(input + BlockSize * i, output + BlockSize * i, expanded_key8);
         }
@@ -41,7 +41,7 @@ public:
         }
     }
 
-    void Decrypt(uint8_t *input, uint8_t key[KeySize / 8], uint8_t *output, size_t output_len) {
+    void DecryptEcb(uint8_t *input, uint8_t *key, uint8_t *output, size_t output_len) {
         uint32_t expanded_key[ExpandedKeySize];
         KeyExpansion(key, expanded_key);
 
@@ -49,7 +49,7 @@ public:
         size_t block_count = output_len / block_size;
 
         auto expanded_key8 = (uint8_t *) expanded_key;
-//#pragma omp parallel for
+#pragma omp parallel for
         for(size_t i = 0; i < block_count; i++) {
             InvCipher(input + block_size * i, output + block_size * i, expanded_key8);
         }
@@ -59,6 +59,27 @@ public:
             memset(padded_input, 0, sizeof(padded_input));
             InvCipher(input + block_size * block_count, padded_input, expanded_key8);
             memcpy(output + block_size * block_count, padded_input, remaining_data);
+        }
+    }
+
+    void EncryptCbc(uint8_t *input, size_t input_len, uint8_t *key, const uint8_t* init_vector, uint8_t *output, size_t &output_len) {
+        uint32_t expanded_key[ExpandedKeySize];
+        KeyExpansion(key, expanded_key);
+
+        size_t block_count = input_len / BlockSize;
+
+        auto expanded_key8 = (uint8_t *) expanded_key;
+        for(size_t i = 0; i < block_count; i++) {
+            Cipher(input + BlockSize * i, output + BlockSize * i, expanded_key8);
+        }
+        output_len = block_count * BlockSize;
+
+        size_t remaining_data = input_len % BlockSize;
+        if(remaining_data > 0) {
+            uint8_t padded_input[BlockSize] = {0};
+            memcpy(padded_input, input + BlockSize * block_count, remaining_data);
+            Cipher(padded_input, output + BlockSize * block_count, expanded_key8);
+            output_len += BlockSize;
         }
     }
 
