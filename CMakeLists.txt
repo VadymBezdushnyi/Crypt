@@ -4,9 +4,9 @@ project(Crypt)
 set(CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fopenmp")
 
-add_executable(Crypt src/Algo/AES/Aes.cpp src/Algo/AES/Aes.h test/Algo/aes_test.cpp test/main.cpp)
-
-
+include_directories(${PROJECT_SOURCE_DIR}/src)
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.h" "${PROJECT_SOURCE_DIR}/src/*.cpp")
+add_library(Crypt ${sources} src/utils.h src/StreamCiphers/Aes.h src/StreamCiphers/Aes.cpp)
 
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
@@ -39,9 +39,8 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
 if (CMAKE_VERSION VERSION_LESS 2.8.11)
     include_directories("${gtest_SOURCE_DIR}/include")
 endif()
-
+target_include_directories(Crypt PUBLIC ${sources})
 include_directories(src)
-add_subdirectory(src)
-add_subdirectory(test)
-target_link_libraries(Crypt gtest_main)
-add_test(NAME aes_test.cpp COMMAND example)
+
+add_executable(Tests test/aes_test.cpp test/stream_test.cpp test/utils.h)
+target_link_libraries(Tests PUBLIC Crypt gtest_main)
