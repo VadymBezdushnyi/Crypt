@@ -70,7 +70,7 @@ TEST_P(AesStreamParametrizedModeTest, ParametrizedModeTest) {
 }
 
 TEST_P(AesStreamParametrizedModeTest, Benchmark) {
-    BenchmarkStreamAes(100'000, GetParam());
+    BenchmarkStreamAes(1'000'000, GetParam());
 }
 
 TEST(StreamCiphersTest, Rc4Test) {

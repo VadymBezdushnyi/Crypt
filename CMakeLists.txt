@@ -42,5 +42,6 @@ endif()
 target_include_directories(Crypt PUBLIC ${sources})
 include_directories(src)
 
-add_executable(Tests test/aes_test.cpp test/stream_test.cpp test/utils.h)
-target_link_libraries(Tests PUBLIC Crypt gtest_main)
+add_subdirectory(src)
+
+add_subdirectory(test)
